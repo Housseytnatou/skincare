@@ -25,3 +25,13 @@ Route::apiResource('categories', CategoryController::class);
 
 // ✅ Routes API pour les produits (CRUD)
 Route::apiResource('products', ProductController::class);
+use App\Http\Controllers\AuthController;
+
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+// Routes protégées avec sanctum
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    // Tu pourras mettre ici d’autres routes sécurisées, comme la création de commande
+});
