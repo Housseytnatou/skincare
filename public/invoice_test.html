@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📄 Test Factures PDF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .section h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .invoice-preview {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📄 Test Génération de Factures PDF</h1>
+    
+    <!-- Section Authentification -->
+    <div class="section">
+        <h2>🔐 Authentification</h2>
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="email" value="test2@example.com">
+        </div>
+        <div class="form-group">
+            <label>Mot de passe:</label>
+            <input type="password" id="password" value="password123">
+        </div>
+        <button onclick="login()">Se connecter</button>
+        <button onclick="logout()">Se déconnecter</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+
+    <!-- Section Commandes -->
+    <div class="section">
+        <h2>📋 Mes Commandes</h2>
+        <button onclick="getOrders()">Voir mes commandes</button>
+        <div id="orders-result" class="result"></div>
+    </div>
+
+    <!-- Section Factures -->
+    <div class="section">
+        <h2>📄 Gestion des Factures</h2>
+        <div class="form-group">
+            <label>ID de la commande:</label>
+            <input type="number" id="orderId" placeholder="Entrez l'ID d'une commande">
+        </div>
+        <button onclick="getInvoiceUrl()">Obtenir l'URL de la facture</button>
+        <button onclick="downloadInvoice()">Télécharger la facture</button>
+        <button onclick="previewInvoice()">Prévisualiser la facture</button>
+        <div id="invoice-result" class="result"></div>
+    </div>
+
+    <!-- Section Prévisualisation -->
+    <div class="section">
+        <h2>👁️ Prévisualisation de la Facture</h2>
+        <iframe id="invoice-preview" class="invoice-preview" style="display: none;"></iframe>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('api_token');
+        const baseUrl = 'http://127.0.0.1:8000/api';
+
+        function updateTokenDisplay() {
+            if (token) {
+                document.getElementById('auth-result').innerHTML = '✅ Connecté - Token: ' + token.substring(0, 20) + '...';
+                document.getElementById('auth-result').className = 'result success';
+            } else {
+                document.getElementById('auth-result').innerHTML = '❌ Non connecté';
+                document.getElementById('auth-result').className = 'result error';
+            }
+        }
+
+        async function makeRequest(method, endpoint, data = null, headers = []) {
+            const defaultHeaders = ['Accept: application/json'];
+            if (data) {
+                defaultHeaders.push('Content-Type: application/json');
+            }
+            if (token) {
+                defaultHeaders.push('Authorization: Bearer ' + token);
+            }
+
+            const options = {
+                method: method,
+                headers: defaultHeaders
+            };
+
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+
+            try {
+                const response = await fetch(baseUrl + endpoint, options);
+                const result = await response.json();
+                return {
+                    status: response.status,
+                    data: result
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    data: { error: error.message }
+                };
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const result = await makeRequest('POST', '/login', {
+                email: email,
+                password: password
+            });
+
+            if (result.status === 200 && result.data.access_token) {
+                token = result.data.access_token;
+                localStorage.setItem('api_token', token);
+                updateTokenDisplay();
+            }
+
+            document.getElementById('auth-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('auth-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function logout() {
+            const result = await makeRequest('POST', '/logout');
+            token = null;
+            localStorage.removeItem('api_token');
+            updateTokenDisplay();
+            
+            document.getElementById('auth-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+        }
+
+        async function getOrders() {
+            const result = await makeRequest('GET', '/orders');
+            document.getElementById('orders-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('orders-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function getInvoiceUrl() {
+            const orderId = document.getElementById('orderId').value;
+            if (!orderId) {
+                alert('Veuillez entrer un ID de commande');
+                return;
+            }
+
+            const result = await makeRequest('GET', `/orders/${orderId}/invoice/url`);
+            document.getElementById('invoice-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('invoice-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function downloadInvoice() {
+            const orderId = document.getElementById('orderId').value;
+            if (!orderId) {
+                alert('Veuillez entrer un ID de commande');
+                return;
+            }
+
+            // Créer un lien de téléchargement
+            const url = `${baseUrl}/orders/${orderId}/invoice/download`;
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `facture_commande_${orderId}.pdf`;
+            
+            // Ajouter le token d'authentification
+            link.setAttribute('data-token', token);
+            
+            // Déclencher le téléchargement
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            document.getElementById('invoice-result').innerHTML = 
+                'Téléchargement de la facture en cours...';
+            document.getElementById('invoice-result').className = 'result success';
+        }
+
+        async function previewInvoice() {
+            const orderId = document.getElementById('orderId').value;
+            if (!orderId) {
+                alert('Veuillez entrer un ID de commande');
+                return;
+            }
+
+            const previewFrame = document.getElementById('invoice-preview');
+            previewFrame.src = `${baseUrl}/orders/${orderId}/invoice/preview`;
+            previewFrame.style.display = 'block';
+
+            document.getElementById('invoice-result').innerHTML = 
+                'Prévisualisation de la facture chargée...';
+            document.getElementById('invoice-result').className = 'result success';
+        }
+
+        // Initialiser l'affichage
+        updateTokenDisplay();
+    </script>
+</body>
+</html> 

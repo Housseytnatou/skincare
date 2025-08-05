@@ -20,5 +20,11 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
+
+        // Ajouter les seeders pour les commandes et stocks
+        $this->call([
+            OrderSeeder::class,
+            StockSeeder::class,
+        ]);
     }
 }

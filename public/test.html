@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Test API Skincare</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .section h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test API Skincare Backend</h1>
+    
+    <!-- Section Authentification -->
+    <div class="section">
+        <h2>🔐 Authentification</h2>
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="email" value="test2@example.com">
+        </div>
+        <div class="form-group">
+            <label>Mot de passe:</label>
+            <input type="password" id="password" value="password123">
+        </div>
+        <button onclick="register()">Créer un compte</button>
+        <button onclick="login()">Se connecter</button>
+        <button onclick="logout()">Se déconnecter</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+
+    <!-- Section Produits -->
+    <div class="section">
+        <h2>🛍️ Produits</h2>
+        <button onclick="getProducts()">Voir tous les produits</button>
+        <div id="products-result" class="result"></div>
+    </div>
+
+    <!-- Section Panier -->
+    <div class="section">
+        <h2>🛒 Panier</h2>
+        <div class="form-group">
+            <label>ID Produit:</label>
+            <input type="number" id="productId" value="1">
+        </div>
+        <div class="form-group">
+            <label>Quantité:</label>
+            <input type="number" id="quantity" value="2">
+        </div>
+        <button onclick="addToCart()">Ajouter au panier</button>
+        <button onclick="getCart()">Voir le panier</button>
+        <button onclick="getCartTotal()">Total du panier</button>
+        <button onclick="clearCart()">Vider le panier</button>
+        <div id="cart-result" class="result"></div>
+    </div>
+
+    <!-- Section Commandes -->
+    <div class="section">
+        <h2>📋 Commandes</h2>
+        <div class="form-group">
+            <label>Adresse de livraison:</label>
+            <input type="text" id="shippingAddress" value="123 Rue de la Paix">
+        </div>
+        <div class="form-group">
+            <label>Ville:</label>
+            <input type="text" id="shippingCity" value="Paris">
+        </div>
+        <div class="form-group">
+            <label>Code postal:</label>
+            <input type="text" id="shippingPostalCode" value="75001">
+        </div>
+        <div class="form-group">
+            <label>Téléphone:</label>
+            <input type="text" id="shippingPhone" value="0123456789">
+        </div>
+        <div class="form-group">
+            <label>Mode de paiement:</label>
+            <select id="paymentMethod">
+                <option value="online">Paiement en ligne</option>
+                <option value="cash_on_delivery">Paiement à la livraison</option>
+            </select>
+        </div>
+        <button onclick="createOrder()">Créer une commande</button>
+        <button onclick="getOrders()">Voir mes commandes</button>
+        <button onclick="getOrderStatistics()">Statistiques (Admin)</button>
+        <div id="orders-result" class="result"></div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('api_token');
+        const baseUrl = 'http://127.0.0.1:8000/api';
+
+        function updateTokenDisplay() {
+            if (token) {
+                document.getElementById('auth-result').innerHTML = '✅ Connecté - Token: ' + token.substring(0, 20) + '...';
+                document.getElementById('auth-result').className = 'result success';
+            } else {
+                document.getElementById('auth-result').innerHTML = '❌ Non connecté';
+                document.getElementById('auth-result').className = 'result error';
+            }
+        }
+
+        async function makeRequest(method, endpoint, data = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+
+            const options = {
+                method: method,
+                headers: headers
+            };
+
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+
+            try {
+                const response = await fetch(baseUrl + endpoint, options);
+                const result = await response.json();
+                return {
+                    status: response.status,
+                    data: result
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    data: { error: error.message }
+                };
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const result = await makeRequest('POST', '/register', {
+                name: 'Test User',
+                email: email,
+                password: password,
+                password_confirmation: password
+            });
+
+            document.getElementById('auth-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('auth-result').className = 
+                result.status === 201 ? 'result success' : 'result error';
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const result = await makeRequest('POST', '/login', {
+                email: email,
+                password: password
+            });
+
+            if (result.status === 200 && result.data.access_token) {
+                token = result.data.access_token;
+                localStorage.setItem('api_token', token);
+                updateTokenDisplay();
+            }
+
+            document.getElementById('auth-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('auth-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function logout() {
+            const result = await makeRequest('POST', '/logout');
+            token = null;
+            localStorage.removeItem('api_token');
+            updateTokenDisplay();
+            
+            document.getElementById('auth-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+        }
+
+        async function getProducts() {
+            const result = await makeRequest('GET', '/products');
+            document.getElementById('products-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('products-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function addToCart() {
+            const productId = document.getElementById('productId').value;
+            const quantity = document.getElementById('quantity').value;
+            
+            const result = await makeRequest('POST', '/carts', {
+                product_id: parseInt(productId),
+                quantity: parseInt(quantity)
+            });
+
+            document.getElementById('cart-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('cart-result').className = 
+                result.status === 201 ? 'result success' : 'result error';
+        }
+
+        async function getCart() {
+            const result = await makeRequest('GET', '/carts');
+            document.getElementById('cart-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('cart-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function getCartTotal() {
+            const result = await makeRequest('GET', '/carts/total');
+            document.getElementById('cart-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('cart-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function clearCart() {
+            const result = await makeRequest('DELETE', '/carts/clear');
+            document.getElementById('cart-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('cart-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function createOrder() {
+            const result = await makeRequest('POST', '/orders', {
+                shipping_address: document.getElementById('shippingAddress').value,
+                shipping_city: document.getElementById('shippingCity').value,
+                shipping_postal_code: document.getElementById('shippingPostalCode').value,
+                shipping_phone: document.getElementById('shippingPhone').value,
+                payment_method: document.getElementById('paymentMethod').value,
+                notes: 'Commande créée via l\'interface de test'
+            });
+
+            document.getElementById('orders-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('orders-result').className = 
+                result.status === 201 ? 'result success' : 'result error';
+        }
+
+        async function getOrders() {
+            const result = await makeRequest('GET', '/orders');
+            document.getElementById('orders-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('orders-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        async function getOrderStatistics() {
+            const result = await makeRequest('GET', '/orders/statistics');
+            document.getElementById('orders-result').innerHTML = 
+                `Status: ${result.status}\n${JSON.stringify(result.data, null, 2)}`;
+            document.getElementById('orders-result').className = 
+                result.status === 200 ? 'result success' : 'result error';
+        }
+
+        // Initialiser l'affichage
+        updateTokenDisplay();
+    </script>
+</body>
+</html> 
